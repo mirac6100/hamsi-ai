@@ -38,6 +38,7 @@ const HomePage = () => {
   const [selectedMode, setSelectedMode] = useState('casual');
   const [isTyping, setIsTyping] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [currentSession, setCurrentSession] = useState(null);
   const scrollRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -53,10 +54,39 @@ const HomePage = () => {
     }
   }, [messages]);
 
+  // Create session on mount
+  useEffect(() => {
+    createSession();
+  }, []);
+
+  const createSession = async () => {
+    try {
+      const response = await axios.post(`${API}/sessions`, {
+        mode: selectedMode
+      });
+      setCurrentSession(response.data.session_id);
+    } catch (error) {
+      console.error('Error creating session:', error);
+      toast({
+        title: 'Hata',
+        description: 'Oturum oluşturulamadı',
+        variant: 'destructive'
+      });
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!inputMessage.trim() && !selectedFile) return;
+    if (!currentSession) {
+      toast({
+        title: 'Hata',
+        description: 'Oturum bulunamadı',
+        variant: 'destructive'
+      });
+      return;
+    }
 
-    const userMessage = {
+    const tempUserMessage = {
       id: Date.now().toString(),
       role: 'user',
       content: inputMessage,
@@ -64,22 +94,62 @@ const HomePage = () => {
       timestamp: new Date().toISOString()
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    setMessages(prev => [...prev, tempUserMessage]);
+    const messageToSend = inputMessage;
     setInputMessage('');
     setSelectedFile(null);
     setIsTyping(true);
 
-    // Mock response delay
-    setTimeout(() => {
-      const assistantMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: generateMockResponse(inputMessage, selectedMode),
-        timestamp: new Date().toISOString()
-      };
-      setMessages(prev => [...prev, assistantMessage]);
+    try {
+      // Upload file if exists
+      let fileId = null;
+      if (selectedFile) {
+        const formData = new FormData();
+        formData.append('file', selectedFile.rawFile);
+        const fileResponse = await axios.post(`${API}/upload`, formData);
+        fileId = fileResponse.data.file_id;
+      }
+
+      // Send message to AI
+      const response = await axios.post(`${API}/chat`, {
+        session_id: currentSession,
+        message: messageToSend,
+        mode: selectedMode,
+        file_id: fileId
+      });
+
+      // Replace temp message with actual one
+      setMessages(prev => {
+        const withoutTemp = prev.filter(m => m.id !== tempUserMessage.id);
+        return [
+          ...withoutTemp,
+          {
+            id: response.data.user_message.id,
+            role: 'user',
+            content: response.data.user_message.content,
+            timestamp: response.data.user_message.timestamp,
+            file: selectedFile
+          },
+          {
+            id: response.data.assistant_message.id,
+            role: 'assistant',
+            content: response.data.assistant_message.content,
+            timestamp: response.data.assistant_message.timestamp
+          }
+        ];
+      });
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        title: 'Hata',
+        description: 'Mesaj gönderilemedi',
+        variant: 'destructive'
+      });
+      // Remove temp message on error
+      setMessages(prev => prev.filter(m => m.id !== tempUserMessage.id));
+    } finally {
       setIsTyping(false);
-    }, 1000);
+    }
   };
 
   const handleFileSelect = (e) => {
