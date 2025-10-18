@@ -6,7 +6,31 @@ import { Card } from '../components/ui/card';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { toast } from '../hooks/use-toast';
-import { mockModes, generateMockResponse } from '../mock';
+import axios from 'axios';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const API = `${BACKEND_URL}/api`;
+
+const mockModes = [
+  {
+    id: 'casual',
+    name: 'Günlük',
+    description: 'Rahat ve samimi sohbet',
+    icon: 'MessageCircle'
+  },
+  {
+    id: 'formal',
+    name: 'Resmi',
+    description: 'Profesyonel ve resmi iletişim',
+    icon: 'Briefcase'
+  },
+  {
+    id: 'professional',
+    name: 'Teknik',
+    description: 'Detaylı ve teknik açıklamalar',
+    icon: 'Code'
+  }
+];
 
 const HomePage = () => {
   const [messages, setMessages] = useState([]);
