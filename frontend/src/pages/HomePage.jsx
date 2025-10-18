@@ -158,7 +158,8 @@ const HomePage = () => {
       setSelectedFile({
         name: file.name,
         size: file.size,
-        type: file.type
+        type: file.type,
+        rawFile: file
       });
       toast({
         title: 'Dosya seçildi',
@@ -167,9 +168,10 @@ const HomePage = () => {
     }
   };
 
-  const handleNewChat = () => {
+  const handleNewChat = async () => {
     setMessages([]);
     setSelectedFile(null);
+    await createSession();
     toast({
       title: 'Yeni sohbet başlatıldı',
       description: 'Temiz bir sayfa ile başlayabilirsiniz'
